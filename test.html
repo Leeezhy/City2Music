@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>City Sound to Music</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/yamnet"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+    #status { margin-top: 10px; font-size: 1.2em; color: green; }
+    button { font-size: 1em; padding: 10px 20px; }
+  </style>
+</head>
+<body>
+  <h1>🎧 City Sound to Music</h1>
+  <button id="startButton">Start Listening</button>
+  <div id="status">Waiting to start...</div>
+
+  <script>
+    let model;
+    let audioContext;
+    let mic;
+    let recognizerRunning = false;
+    const sampler = new Tone.Sampler({
+      urls: {
+        C4: "https://cdn.jsdelivr.net/gh/Tonejs/Tone.js/examples/audio/casio/C4.mp3",
+        D4: "https://cdn.jsdelivr.net/gh/Tonejs/Tone.js/examples/audio/casio/D4.mp3",
+        E4: "https://cdn.jsdelivr.net/gh/Tonejs/Tone.js/examples/audio/casio/E4.mp3",
+      },
+      release: 1,
+    }).toDestination();
+
+    document.getElementById("startButton").onclick = async () => {
+      if (recognizerRunning) return;
+      recognizerRunning = true;
+      document.getElementById("status").innerText = "Loading model...";
+      model = await yamnet.load();
+      document.getElementById("status").innerText = "Model loaded. Initializing audio...";
+
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mic = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      mic.connect(processor);
+      processor.connect(audioContext.destination);
+
+      const buffer = [];
+      processor.onaudioprocess = async (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        buffer.push(...input);
+        if (buffer.length > 16000) {
+          const inputTensor = tf.tensor(buffer.slice(0, 16000));
+          buffer.splice(0, 16000);
+          const scores = await model.predict(inputTensor);
+          const classes = model.getClasses(scores);
+          const top3 = classes.slice(0, 3).map(d => d.className);
+          document.getElementById("status").innerText = "Detected: " + top3.join(", ");
+
+          if (top3.includes("Car horn")) sampler.triggerAttackRelease("C4", "8n");
+          if (top3.includes("Speech")) sampler.triggerAttackRelease("D4", "8n");
+          if (top3.includes("Traffic noise")) sampler.triggerAttackRelease("E4", "8n");
+        }
+      };
+    };
+  </script>
+</body>
+</html>
