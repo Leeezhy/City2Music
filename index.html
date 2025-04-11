@@ -32,6 +32,7 @@
     }).toDestination();
 
     document.getElementById("startButton").onclick = async () => {
+      await Tone.start(); // 🔑 必须在用户交互后初始化音频系统
       if (recognizerRunning) return;
       recognizerRunning = true;
       document.getElementById("status").innerText = "Loading model...";
@@ -49,9 +50,9 @@
       processor.onaudioprocess = async (e) => {
         const input = e.inputBuffer.getChannelData(0);
         buffer.push(...input);
-        if (buffer.length > 16000) {
-          const inputTensor = tf.tensor(buffer.slice(0, 16000));
-          buffer.splice(0, 16000);
+        if (buffer.length >= 16000) {
+          const slice = buffer.splice(0, 16000);
+          const inputTensor = tf.tensor(slice);
           const scores = await model.predict(inputTensor);
           const classes = model.getClasses(scores);
           const top3 = classes.slice(0, 3).map(d => d.className);
