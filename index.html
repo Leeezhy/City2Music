@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>City Sound to Music</title>
   
-    <!-- ✅ 先加载 TensorFlow.js 和模型 -->
+    <!-- 加载 TensorFlow.js 与模型 -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/yamnet"></script>
   
-    <!-- ✅ 再加载 Tone.js（必须在你用 Tone 前就加载） -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.min.js"></script>
+    <!-- ✅ 更换为稳定的 Tone.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.8.39/build/Tone.js"></script>
   
     <style>
       body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
@@ -17,6 +17,7 @@
       button { font-size: 1em; padding: 10px 20px; }
     </style>
   </head>
+  
 <body>
   <h1>🎧 City Sound to Music</h1>
   <button id="startButton">Start Listening</button>
