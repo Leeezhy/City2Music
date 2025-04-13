@@ -1,23 +1,37 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>City Sound to Music</title>
-  
-    <!-- 加载 TensorFlow.js 与模型 -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/yamnet"></script>
-  
-    <!-- ✅ 更换为稳定的 Tone.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/tone@14.8.39/build/Tone.js"></script>
-  
-    <style>
-      body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
-      #status { margin-top: 10px; font-size: 1.2em; color: green; }
-      button { font-size: 1em; padding: 10px 20px; }
-    </style>
-  </head>
-  
+<head>
+  <meta charset="UTF-8" />
+  <title>City Sound to Music</title>
+
+  <!-- TensorFlow.js 和 YAMNet 模型 -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/yamnet@1.0.2/dist/yamnet.min.js"></script>
+
+  <!-- Tone.js 音频库 -->
+  <script src="https://cdn.jsdelivr.net/npm/tone@14.8.39/build/Tone.js"></script>
+
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #f4f4f4;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 24px;
+    }
+    button {
+      font-size: 16px;
+      padding: 10px 20px;
+      margin-top: 10px;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 16px;
+      color: green;
+    }
+  </style>
+</head>
 <body>
   <h1>🎧 City Sound to Music</h1>
   <button id="startButton">Start Listening</button>
@@ -28,13 +42,14 @@
     let audioContext;
     let mic;
     let recognizerRunning = false;
-    const labelNames = []; // to be populated by model
+    let labelNames = [];
 
+    // ✅ 使用可用的音频链接（来自 tonejs-instruments 项目）
     const sampler = new Tone.Sampler({
       urls: {
-        C4: "https://cdn.jsdelivr.net/gh/Tonejs/Tone.js/examples/audio/casio/C4.mp3",
-        D4: "https://cdn.jsdelivr.net/gh/Tonejs/Tone.js/examples/audio/casio/D4.mp3",
-        E4: "https://cdn.jsdelivr.net/gh/Tonejs/Tone.js/examples/audio/casio/E4.mp3",
+        C4: "https://cdn.jsdelivr.net/gh/nbrosowsky/tonejs-instruments/samples/piano/C4.mp3",
+        D4: "https://cdn.jsdelivr.net/gh/nbrosowsky/tonejs-instruments/samples/piano/D4.mp3",
+        E4: "https://cdn.jsdelivr.net/gh/nbrosowsky/tonejs-instruments/samples/piano/E4.mp3",
       },
       release: 1,
     }).toDestination();
@@ -53,14 +68,15 @@
         await Tone.start();
         if (recognizerRunning) return;
         recognizerRunning = true;
+
         document.getElementById("status").innerText = "Loading model...";
         model = await yamnet.load();
-        labelNames.push(...model.labels); // save labels
-        document.getElementById("status").innerText = "Model loaded. Waiting for mic...";
+        labelNames = model.labels;
+        document.getElementById("status").innerText = "Model loaded. Listening...";
 
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mic = audioContext.createMediaStreamSource(stream);
+        const mic = audioContext.createMediaStreamSource(stream);
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
         mic.connect(processor);
         processor.connect(audioContext.destination);
@@ -82,8 +98,8 @@
           }
         };
       } catch (err) {
-        document.getElementById("status").innerText = "❌ Error: " + err.message;
         console.error(err);
+        document.getElementById("status").innerText = "❌ Error: " + err.message;
       }
     };
   </script>
