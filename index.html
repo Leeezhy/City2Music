@@ -22,6 +22,8 @@
     let audioContext;
     let mic;
     let recognizerRunning = false;
+    const labelNames = []; // to be populated by model
+
     const sampler = new Tone.Sampler({
       urls: {
         C4: "https://cdn.jsdelivr.net/gh/Tonejs/Tone.js/examples/audio/casio/C4.mp3",
@@ -31,38 +33,52 @@
       release: 1,
     }).toDestination();
 
+    async function getTopLabels(scoresTensor, topK = 3) {
+      const scores = (await scoresTensor.array())[0];
+      const topIndices = scores
+        .map((score, idx) => ({ score, idx }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK);
+      return topIndices.map(obj => labelNames[obj.idx]);
+    }
+
     document.getElementById("startButton").onclick = async () => {
-      await Tone.start(); // 🔑 必须在用户交互后初始化音频系统
-      if (recognizerRunning) return;
-      recognizerRunning = true;
-      document.getElementById("status").innerText = "Loading model...";
-      model = await yamnet.load();
-      document.getElementById("status").innerText = "Model loaded. Initializing audio...";
+      try {
+        await Tone.start();
+        if (recognizerRunning) return;
+        recognizerRunning = true;
+        document.getElementById("status").innerText = "Loading model...";
+        model = await yamnet.load();
+        labelNames.push(...model.labels); // save labels
+        document.getElementById("status").innerText = "Model loaded. Waiting for mic...";
 
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mic = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      mic.connect(processor);
-      processor.connect(audioContext.destination);
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mic = audioContext.createMediaStreamSource(stream);
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        mic.connect(processor);
+        processor.connect(audioContext.destination);
 
-      const buffer = [];
-      processor.onaudioprocess = async (e) => {
-        const input = e.inputBuffer.getChannelData(0);
-        buffer.push(...input);
-        if (buffer.length >= 16000) {
-          const slice = buffer.splice(0, 16000);
-          const inputTensor = tf.tensor(slice);
-          const scores = await model.predict(inputTensor);
-          const classes = model.getClasses(scores);
-          const top3 = classes.slice(0, 3).map(d => d.className);
-          document.getElementById("status").innerText = "Detected: " + top3.join(", ");
+        const buffer = [];
 
-          if (top3.includes("Car horn")) sampler.triggerAttackRelease("C4", "8n");
-          if (top3.includes("Speech")) sampler.triggerAttackRelease("D4", "8n");
-          if (top3.includes("Traffic noise")) sampler.triggerAttackRelease("E4", "8n");
-        }
-      };
+        processor.onaudioprocess = async (e) => {
+          const input = e.inputBuffer.getChannelData(0);
+          buffer.push(...input);
+          if (buffer.length >= 16000) {
+            const slice = buffer.splice(0, 16000);
+            const inputTensor = tf.tensor(slice, [1, slice.length]);
+            const topLabels = await getTopLabels(await model.predict(inputTensor));
+            document.getElementById("status").innerText = "Detected: " + topLabels.join(", ");
+
+            if (topLabels.includes("Car horn")) sampler.triggerAttackRelease("C4", "8n");
+            if (topLabels.includes("Speech")) sampler.triggerAttackRelease("D4", "8n");
+            if (topLabels.includes("Traffic noise")) sampler.triggerAttackRelease("E4", "8n");
+          }
+        };
+      } catch (err) {
+        document.getElementById("status").innerText = "❌ Error: " + err.message;
+        console.error(err);
+      }
     };
   </script>
 </body>
